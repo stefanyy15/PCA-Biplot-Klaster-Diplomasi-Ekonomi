@@ -1,0 +1,270 @@
+rm(list=ls())
+data <- read.csv(file.choose(), header=TRUE, sep=';', dec = '.')
+View(data)
+str(data)
+attach(data)
+#Matriks data Y
+Y <- as.matrix(data[,2:5])
+Y
+cor(Y)
+#Standarisasi data
+y1 <- (Y[,1]-mean(Y[,1]))/sd(Y[,1])
+y2 <- (Y[,2]-mean(Y[,2]))/sd(Y[,2])
+y3 <- (Y[,3]-mean(Y[,3]))/sd(Y[,3])
+y4 <- (Y[,4]-mean(Y[,4]))/sd(Y[,4])
+
+datastandar <- data.frame(x1=c(y1),x2=c(y2),x3=c(y3),x4=c(y4))
+datastandar
+
+###Identifikasi Outlier###
+# Menghitung rata-rata dan matriks kovarians
+mu <- colMeans(Y)  # Rata-rata setiap variabel
+cov_matrix <- cov(Y)  # Matriks kovarians
+
+# Menghitung jarak Mahalanobis untuk setiap observasi
+library(MASS)
+mahalanobis_dist <- mahalanobis(Y, center = mu, cov = cov_matrix);mahalanobis_dist
+
+###Menentukan threshold untuk outlier (misalnya, lebih dari kuantil 0.975)
+threshold <- qchisq(0.95, df = ncol(Y))  # df = jumlah variabel
+threshold
+# Menandakan apakah setiap observasi merupakan outlier
+outliers <- mahalanobis_dist > threshold
+
+# Menampilkan hasil outlier
+outliers  # TRUE jika outlier, FALSE jika bukan
+
+# Langkah 3: Membuat Box-Plot untuk Jarak Mahalanobis
+boxplot(mahalanobis_dist, main="Boxplot of Mahalanobis Distances", ylab="Mahalanobis Distance")
+
+# Menambahkan garis threshold pada boxplot untuk referensi
+abline(h = threshold, col = "red", lty = 2)
+
+
+###PCA Biplot###
+#Matriks X
+X <- as.matrix(datastandar)
+X
+#Mencari Nilai Eigen dan Eigen Vektor
+XtX <- t(X)%*%X
+XtX
+eigen(XtX)
+#Matriks L
+Nilai_eigen <- eigen(XtX)$value
+Nilai_eigen
+L <- diag(Nilai_eigen^(1/2))
+L
+
+#Matriks A
+Vektor_eigen <- eigen(XtX)$vector
+A <- Vektor_eigen
+A
+
+###Korelasi Variabel dengan PC nya###
+bartlett.test(data1)
+
+cov_matrix <- cov(X)
+cov_matrix   # Matriks kovarians
+cov_diag <- diag(XtX) ; cov_diag
+
+sqrt_nilaieigen=sqrt(Nilai_eigen)
+
+rho_matrix = t(t(Vektor_eigen) * sqrt_nilaieigen) / cov_diag ;rho_matrix
+
+#Matriks U
+u1 <- (1/L[1,1])*X%*%A[,1]
+u2 <- (1/L[2,2])*X%*%A[,2]
+u3 <- (1/L[3,3])*X%*%A[,3]
+u4 <- (1/L[4,4])*X%*%A[,4]
+U <- data.frame(u1=c(u1),u2=c(u2),u3=c(u3),u4=c(u4))
+U <- as.matrix(U)
+U
+
+Ulainnya <- X%*%A%*%solve(L)
+Ulainnya
+
+# Identifikasi Persentase Keragaman Data
+PV1 <- Nilai_eigen[1]/sum(Nilai_eigen)
+PV2 <- Nilai_eigen[2]/sum(Nilai_eigen)
+PV3 <- Nilai_eigen[3]/sum(Nilai_eigen)
+PV4 <- Nilai_eigen[4]/sum(Nilai_eigen)
+PV <- data.frame(PC = c("PC1","PC2",
+                        "PC3","PC4"),PV =
+                   c(PV1,PV2,PV3,PV4))
+##Nilai Cumulative Proportion
+PC1 <- PV1
+PC2 <- PC1+PV2
+PC3 <- PC2+PV3
+PC4 <- PC3+PV4
+PC <- data.frame(Cummulative =
+                   c(PC1,PC2,PC3,PC4))                 
+cbind(PV,PC)
+pca<- prcomp(X, scale = TRUE)
+sum_pca <- summary(pca)
+sum_pca
+#Perhitungan PCA Biplot
+alpha <- 0.5
+G <- U%*%L^alpha; G
+Ht <- L^(1-alpha)%*%t(A)
+H <- t(Ht)
+H
+#Analisis Biplot
+G7 <- G[,1:4] ; G7
+H7 <- H[,1:4] ; H7
+
+#======== IDENTIFIKASI HASIL BIPLOT =========
+##NILAI KORELASI ANTAR VARIABEL
+korelasi_cosinus <- function(X) {
+  library(geometry)
+  p <- nrow(X)
+  r <- matrix(,nrow=p,ncol=p)
+  for (i in 1:nrow(X)) {
+    for (j in 1:nrow(X)) {
+      r[i,j] <- dot(X[i,],X[j,]) /
+        (sqrt(sum(X[i,]^2)) *
+           sqrt(sum(X[j,]^2)))
+    }
+  }
+  print(r)
+}
+#Korelasi Data
+cor(Y)
+cor(X)
+library(geometry)
+
+korvar <- korelasi_cosinus(H7)
+korvar_3 <- round(korvar,3);korvar_3
+
+## Nilai Variabel Pada Suatu Objek
+#Korelasi Variabel dan Objek
+korelasi_obvar <- function(X, Y) {
+  p <- nrow(X)
+  q <- nrow(Y)
+  r <- matrix(, nrow = p, ncol = q)
+  for (i in 1:p) {
+    for (j in 1:q) {
+      r[i, j] <- dot(X[i, ], Y[j, ]) /
+        (sqrt(sum(X[i, ]^2)) * sqrt(sum(Y[j, ]^2)))
+    }
+  }
+  print(r)
+}
+obvar<- korelasi_obvar(G7, H7)
+obvar_3 <- round(obvar,3);obvar_3
+
+# Peta Pengelompokan
+biplot(G7,H7,xlab="PC1 = 58.11 %", ylab="PC2 = 23.47 %", cex=0.6)
+abline(h=0,v=0)
+
+
+#Sudut dan Panjang Vektor
+cos_cor <- function(x) {
+  library(geometry)
+  p <- nrow(x)
+  y <- matrix(,nrow=p,ncol=p)
+  for (i in 1:p) {for (j in 1:p) {
+    y[i,j] <- dot(x[i,],x[j,]) / (sqrt(sum(x[i,]^2)) *
+                                    sqrt(sum(x [j,]^2)))
+  }
+  }
+  print(y)
+}
+cos_cor(H7)
+
+####Bobot###
+# Proporsi variansi komponen pertama
+q1 <- Nilai_eigen[1] / sum(Nilai_eigen)
+q1
+
+# Rata-rata elemen eigenvector untuk komponen utama 1
+rata_eigenvector_1 <- mean(Vektor_eigen[, 1])
+rata_eigenvector_1
+
+# Hitung bobot formatif untuk komponen utama 1
+bobot <- (Vektor_eigen[, 1] / rata_eigenvector_1) * q1
+bobot
+
+# Penimbang terstandarisasi
+B_terstandar <- bobot / sum(bobot)
+B_terstandar
+
+# Penimbang formatif
+sqrtvektor = sqrt(Vektor_eigen^2)
+rata_vektor <- colMeans(sqrtvektor)
+penimbang_formatif <- sweep(sqrtvektor, 2, rata_vektor, FUN = "/") * q1
+penimbang_formatif
+
+# Penimbang terstandar
+jumlah_penimbang <- colSums(penimbang_formatif)
+penimbang_terstandar <- sweep(penimbang_formatif, 2, jumlah_penimbang, FUN = "/")
+penimbang_terstandar
+
+# Penimbang akhir
+penimbang_akhir <- sweep(penimbang_terstandar, 2, PC$PV, FUN = "*")
+print(penimbang_akhir)
+
+# Total penimbang akhir dari semua PC untuk tiap variabel
+total_penimbang_akhir <- rowSums(penimbang_akhir)
+print(total_penimbang_akhir)
+
+#Clustering Analysis
+#===== Menghitung Jarak (Cosinus Distance)
+# Fungsi cosinus similarity
+cosine_similarity <- function(x) {
+  # Menghitung dot product antar semua baris
+  similarity_matrix <- x %*% t(x)
+  
+  # Menghitung norma (panjang vektor) untuk setiap baris
+  norms <- sqrt(rowSums(x^2))
+  
+  # Membagi dot product dengan hasil kali norma untuk setiap pasangan baris
+  similarity_matrix <- similarity_matrix / outer(norms, norms)
+  
+  return(similarity_matrix)
+}
+
+# Menghitung Cosine Similarity dari Matriks G2
+cosine_sim_matrix <- cosine_similarity(G7); cosine_sim_matrix
+
+# Konversi ke Jarak (Cosine Distance)
+jarak <- as.dist(1 - cosine_sim_matrix);jarak
+
+# Klaster Single
+single_clus <- hclust(d=jarak, method="single")
+plot(single_clus, main="Dendogram Single Linkage")
+rect.hclust(single_clus,2)
+data.frame(data$Negara, cutree(single_clus, k=2))
+cophen.single <- cophenetic(single_clus)
+print(cor(cophen.single, jarak))
+
+# Klaster Complete
+complete_clus <- hclust(d=jarak, method="complete")
+plot(complete_clus, main="Dendogram Complete Linkage")
+rect.hclust(complete_clus,2)
+data.frame(data$Negara, cutree(complete_clus, k=2))
+cophen.complete <- cophenetic(complete_clus)
+print(cor(cophen.complete, jarak))
+
+# Klaster Average
+avg_clus <- hclust(d=jarak, method="average")
+plot(avg_clus, main="Dendogram Average Linkage")
+rect.hclust(avg_clus,2)
+data.frame(data$Negara, cutree(avg_clus, k=2))
+cophen.average <- cophenetic(avg_clus)
+print(cor(cophen.average, jarak))
+
+# Klaster Ward
+ward_clus <- hclust(d=jarak, method="ward.D2")
+plot(ward_clus, main="Dendogram Ward Method")
+rect.hclust(ward_clus,2)
+data.frame(data$Negara, cutree(ward_clus, k=2))
+cophen.ward <- cophenetic(ward_clus)
+print(cor(cophen.ward, jarak))
+
+# Klaster Centroid
+centroid_clus <- hclust(d=jarak, method="centroid")
+plot(centroid_clus, main="Dendogram Centroid Method")
+rect.hclust(centroid_clus,2)
+data.frame(data$Negara, cutree(centroid_clus, k=2))
+cophen.centroid <- cophenetic(centroid_clus)
+print(cor(cophen.centroid, jarak))
